@@ -1,0 +1,6 @@
+{
+  "name": "Institutional Handbook Copilot",
+  "description": "Version-Aware RAG with Conflict Detection for institutional handbooks, policies, and regulations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
