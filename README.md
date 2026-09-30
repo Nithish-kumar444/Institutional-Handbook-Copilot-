@@ -1,981 +1,263 @@
 # 📘 Institutional Handbook Copilot
+### Version-Aware RAG with Conflict Detection & Dual Citations
 
-## A Local Flask-Based Citation-Aware RAG System for Institutional Document Intelligence
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open%20App-blue?style=for-the-badge&logo=google-chrome)](https://ais-pre-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen?style=for-the-badge&logo=python)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit)](https://streamlit.io)
+[![FAISS + MiniLM](https://img.shields.io/badge/Embeddings-all--MiniLM--L6--v2-orange?style=for-the-badge)](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+[![Local LLM](https://img.shields.io/badge/LLM-Ollama%20llama3.2%3A3b-black?style=for-the-badge)](https://ollama.com)
 
-Institutional Handbook Copilot is a **locally hosted AI-powered document
-assistant** designed for large institutional PDFs such as university
-handbooks, academic regulations, compliance policies, and grant
-guidelines.
+---
 
-The system allows users to ask natural-language questions and receive
-**grounded answers with page-level citations**. It uses
-Retrieval-Augmented Generation (RAG), semantic search, FAISS vector
-retrieval, and a locally running Ollama LLM.
+## 🔗 Live Interactive Demo
 
-The application is designed to run on a local machine through **Flask**,
-with the web interface accessible through:
+* **Shared Application Preview URL:** [https://ais-pre-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app](https://ais-pre-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app)
+* **Development Preview URL:** [https://ais-dev-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app](https://ais-dev-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app)
 
-``` text
-http://127.0.0.1:5000
+---
+
+## 📌 Problem Statement
+
+Institutions, universities, government bodies, and enterprises publish multi-version PDFs over successive academic years or fiscal cycles:
+* University handbooks & student codes of conduct
+* Academic progression & backlog regulations
+* Compliance policies & grant guidelines
+* Human resources & employee benefits manuals
+
+Standard naive RAG systems silently retrieve whatever text has the highest embedding similarity, often blending superseded regulations with active ones or hallucinating outdated requirements.
+
+**Institutional Handbook Copilot** solves this by:
+1. **Accurate answers grounded strictly in uploaded documents** (never hallucinating outside knowledge).
+2. **Page-level citations** for all factual assertions.
+3. **Automated document version detection & chronological ranking**.
+4. **Deterministic contradiction detection** across handbook revisions (detecting changed percentages, numerical limits, deadlines, and eligibility criteria).
+5. **Conflict resolution prioritization:** When a newer edition contradicts an older edition, the Copilot answers using the newest policy, explicitly flags `⚠️ This contradicts an older version.`, and shows side-by-side citations for both the current policy and the older superseded policy.
+6. **Never silently hiding or masking the older historical policy.**
+
+---
+
+## 🏛️ Core Architecture
+
+```text
+Uploaded PDFs (100+ pages supported)
+    │
+    ▼
+[Text Extraction (PyMuPDF / Native Stream Extractor)]
+    │ ── Page-aware chunking preserving page number & document name
+    │
+    ▼
+[Version Inference Engine]
+    │ ── Priority Hierarchy: Effective Date > Publication Date > Explicit Version > Academic Year > Filename
+    │
+    ▼
+[Dense Embeddings & Vector Index]
+    │ ── all-MiniLM-L6-v2 + L2 Normalization + FAISS Flat Inner Product
+    │
+    ▼
+[Semantic Retrieval (8–12 Candidates)]
+    │
+    ▼
+[Deterministic Conflict Detection Engine]
+    │ ── Analyzes percentages (75% vs 80%), limits (4 backlogs vs 2), dates, and rule polarities
+    │ ── Identifies contradictions between newer and older versions matching query topic
+    │
+    ▼
+[Answer Synthesis (Ollama llama3.2:3b / Grounded Fallback)]
+    │ ── Strict Grounded Prompting (answers with newest policy)
+    │ ── Formats explicit contradiction warning
+    │
+    ▼
+[Final Dual-Citation & Conflict Card Output]
 ```
 
-------------------------------------------------------------------------
+---
 
-## 🎯 Problem Statement
+## ⚡ Conflict Detection in Action
 
-Large institutional PDFs can contain hundreds of pages of information.
-Students, faculty, and employees may spend significant time manually
-searching these documents for specific rules, policies, requirements,
-and procedures.
+### Example 1: Attendance Requirement
+* **Query:** `"What is the minimum attendance requirement?"`
+* **Older Document:** `handbook_2025.pdf` — Page 1 (Minimum attendance: 75%)
+* **Newer Document:** `handbook_2026.pdf` — Page 1 (Minimum attendance: 80%)
 
-The problem becomes more difficult when multiple versions of a handbook
-contain different policies.
-
-For example:
-
-``` text
-2025 Handbook
-Minimum attendance requirement: 75%
-
-2026 Handbook
-Minimum attendance requirement: 80%
-```
-
-A conventional document chatbot may retrieve both statements without
-understanding which policy is current.
-
-Institutional Handbook Copilot is designed to address this problem by
-combining:
-
--   Semantic document retrieval
--   Page-aware PDF processing
--   Version detection
--   Policy conflict detection
--   Newer-version prioritization
--   Grounded local LLM generation
--   Page-level and document-level citations
--   Hallucination-resistant fallback behavior
-
-------------------------------------------------------------------------
-
-# 🚀 Key Features
-
--   Natural-language question answering
--   Local Flask web application
--   Upload and process institutional PDFs
--   Semantic search using `all-MiniLM-L6-v2`
--   FAISS vector retrieval
--   Page-aware PDF processing
--   Multiple PDF / handbook version support
--   Automatic version detection
--   Policy conflict detection
--   Newer-version priority
--   Explicit conflict warnings
--   Page-level citations
--   Source-document citations
--   Grounded answers
--   Unsupported-question fallback
--   Local LLM inference with Ollama
--   No paid cloud LLM API required
--   Localhost deployment
--   Evidence-based document question answering
-
-------------------------------------------------------------------------
-
-# 🏗️ System Architecture
-
-``` text
-                  Institutional PDF(s)
-                         │
-                         ▼
-                ┌──────────────────┐
-                │ PyMuPDF Extraction│
-                └─────────┬────────┘
-                          │
-                          ▼
-                ┌──────────────────┐
-                │ Page-Aware        │
-                │ Chunking          │
-                └─────────┬────────┘
-                          │
-                          ▼
-                ┌──────────────────┐
-                │ MiniLM Embeddings │
-                │ all-MiniLM-L6-v2  │
-                └─────────┬────────┘
-                          │
-                          ▼
-                ┌──────────────────┐
-                │ FAISS Vector      │
-                │ Index             │
-                └─────────┬────────┘
-                          │
-                          ▼
-                    User Question
-                          │
-                          ▼
-                ┌──────────────────┐
-                │ Query Embedding   │
-                └─────────┬────────┘
-                          │
-                          ▼
-                ┌──────────────────┐
-                │ Semantic Retrieval│
-                └─────────┬────────┘
-                          │
-                          ▼
-                Relevant PDF Chunks
-                          │
-                    ┌─────┴─────┐
-                    ▼           ▼
-             Version Detection  Conflict Detection
-                    │           │
-                    └─────┬─────┘
-                          ▼
-                Current Policy Selection
-                          │
-                          ▼
-                ┌──────────────────┐
-                │ Local Ollama LLM │
-                └─────────┬────────┘
-                          │
-                          ▼
-              Answer + Warning + Citations
-                          │
-                          ▼
-                ┌──────────────────┐
-                │ Flask Web Interface│
-                │ localhost:5000     │
-                └──────────────────┘
-```
-
-------------------------------------------------------------------------
-
-# 🧠 RAG Pipeline
-
-The system follows these steps:
-
-1.  Upload one or more institutional PDFs.
-2.  Extract text page by page using PyMuPDF.
-3.  Clean and normalize extracted text.
-4.  Split the text into overlapping chunks.
-5.  Store page, document, version, and chunk metadata.
-6.  Generate embeddings using `all-MiniLM-L6-v2`.
-7.  Store embeddings in a FAISS index.
-8.  Convert the user's question into an embedding.
-9.  Retrieve the most relevant document chunks.
-10. Compare relevant policies across document versions.
-11. Detect possible policy conflicts.
-12. Select the latest applicable policy when version information is
-    available.
-13. Send only the retrieved evidence to the local Ollama model.
-14. Generate a concise grounded answer.
-15. Display page and source-document citations.
-16. Show a conflict warning when contradictory versions are detected.
-17. Return a fallback response when the required information is not
-    found.
-
-------------------------------------------------------------------------
-
-# 🔍 Version and Conflict Detection
-
-A major feature of the project is the ability to work with evolving
-institutional documents.
-
-The system can attempt to identify document versions using:
-
--   Effective date
--   Publication date
--   Revision date
--   Explicit version number
--   Academic year
--   Filename
--   Document title
-
-### Example
-
-``` text
-Handbook_2025.pdf
-Page 38
-Minimum attendance requirement: 75%
-
-Handbook_2026.pdf
-Page 42
-Minimum attendance requirement: 80%
-```
-
-If the user asks:
-
-``` text
-What is the minimum attendance requirement?
-```
-
-The system can produce:
-
-``` text
-The current minimum attendance requirement is 80%.
+**Copilot Output:**
+```text
+The current minimum attendance requirement is 80%. (The older 2025 handbook specified 75%.)
 
 ⚠️ This contradicts an older version.
 
 Current policy:
-Handbook_2026.pdf — Page 42
+handbook_2026.pdf (2026) — Page 1
 
-Older conflicting policy:
-Handbook_2025.pdf — Page 38
+Older policy:
+handbook_2025.pdf (2025) — Page 1
 ```
 
-The older policy is not silently discarded. It remains visible so that
-the user can understand the policy change.
+### Example 2: Backlog Limit for Promotion
+* **Query:** `"How many backlogs are allowed for promotion?"`
+* **Older Document:** `handbook_2025.pdf` — Page 1 (Up to 4 backlogs allowed)
+* **Newer Document:** `handbook_2026.pdf` — Page 1 (Up to 2 backlogs allowed)
 
-------------------------------------------------------------------------
+**Copilot Output:**
+```text
+The current policy allows up to 2 backlogs for promotion. (The older 2025 handbook permitted 4 backlogs.)
 
-# 📚 Example Questions
+⚠️ This contradicts an older version.
 
-The application can answer questions such as:
+Current policy:
+handbook_2026.pdf (2026) — Page 1
 
-### Academic
+Older policy:
+handbook_2025.pdf (2025) — Page 1
+```
 
-1.  What is the grading system used by the institution?
-2.  What are the requirements for obtaining a degree?
-3.  What happens if a student misses a final examination?
-4.  What are the rules for course registration?
-5.  What are the academic probation requirements?
-
-### Student Life
-
-6.  What are the housing rules?
-7.  What are the rules regarding student organizations?
-8.  What student conduct policies are mentioned in the handbook?
-9.  What health-related resources are available to students?
-10. What are the rules for extracurricular activities?
-
-### Administrative
-
-11. What are the financial obligations of students?
-12. What are the rules for taking a leave of absence?
-13. How can a student return after a leave of absence?
-14. What are the examination policies?
-15. What are the academic complaint procedures?
-
-### Advanced RAG Tests
-
-16. What is the minimum attendance requirement?
-17. Has the attendance requirement changed between handbook versions?
-18. How many backlogs are allowed for promotion?
-19. What changed between the previous and current handbook?
-20. What is the cafeteria menu?
-
-The final question can be used as an **unsupported-question test**. If
-the information does not exist in the uploaded documents, the system
-should not invent an answer.
-
-Expected behavior:
-
-``` text
+### Example 3: Grounded Rejection (Out of Scope)
+* **Query:** `"What is the cafeteria menu?"`
+* **Copilot Output:**
+```text
 I could not find this information in the provided documents.
 ```
 
-------------------------------------------------------------------------
+---
 
-# 🛡️ Grounding and Hallucination Control
+## 📂 Project Structure
 
-The system is designed to reduce hallucinations by:
-
--   Restricting the LLM to retrieved document evidence
--   Using semantic retrieval before generation
--   Providing source citations
--   Providing page numbers
--   Detecting document-version conflicts
--   Prioritizing the newer applicable policy
--   Returning a fallback when information is unavailable
-
-The model should not invent:
-
--   Rules
--   Dates
--   Requirements
--   Percentages
--   Policies
--   Procedures
--   Institutional decisions
-
-For important institutional decisions, users should still verify the
-answer against the cited official document.
-
-------------------------------------------------------------------------
-
-# 🖥️ Web Interface
-
-The application provides a local web interface with sections such as:
-
-``` text
-University Mode
-
-[ General Chat ]
-
-[ 1. Harvard Chat ]
-
-[ 2. Upload University PDF ]
-```
-
-The knowledge-base section allows users to select and process PDFs.
-
-Example:
-
-``` text
-Knowledge Base
-
-Choose Files: Harvard.pdf
-
-[ Harvard ]
-
-[ Process University Documents ]
-```
-
-The retrieval section displays information about the semantic search
-system:
-
-``` text
-Retrieval
-
-Semantic Search
-
-MiniLM embeddings + FAISS
-Top results: 4
-```
-
-The interface can also display:
-
-``` text
-Knowledge Chunks: 526
-Documents:       1
-Pages:           114
-```
-
-These values depend on the documents processed by the application.
-
-------------------------------------------------------------------------
-
-# 🛠️ Technology Stack
-
-  Component              Technology
-  ---------------------- -----------------------------
-  Web Framework          Flask
-  Frontend               HTML, CSS, JavaScript
-  Programming Language   Python
-  PDF Processing         PyMuPDF
-  Embeddings             Sentence Transformers
-  Embedding Model        `all-MiniLM-L6-v2`
-  Vector Search          FAISS CPU
-  LLM Runtime            Ollama
-  Local LLM              Llama / Qwen 3B-class model
-  Numerical Processing   NumPy
-  HTTP Communication     Requests
-  Deployment             Localhost
-  Host                   `127.0.0.1`
-  Port                   `5000`
-
-------------------------------------------------------------------------
-
-# 📁 Project Structure
-
-A typical project structure is:
-
-``` text
+```text
 institutional_handbook_copilot/
 │
-├── CHATBOT-LLama-2-main
-│   └── CHATBOT-LLama-2-main
-│       └── harvard_docs
-│       │   └── harvard_pdf
-│       └── Static
-│           └── index.html
-│       └── templates
-│       └── License
-│       └── app.py
-│       └── chat_history.json
-│   └── app.py
-│
-├── requirements.txt
-├── README.md
-│
-├── templates/
-│   └── index.html
-│
-├── static/
-│   ├── style.css
-│   └── script.js
-│
-├── data/
-│   └── uploaded PDFs
-│
-├── cache/
-│   ├── embeddings
-│   └── indexes
-│
-└── sample_docs/
-    ├── Handbook_2025.pdf
-    └── Handbook_2026.pdf
+├── app.py                     # Streamlit interactive web application
+├── core.py                    # RAG pipeline, version detection, conflict engine
+├── demo_test.py               # Automated verification and evaluation test suite
+├── generate_sample_docs.py    # Generates 2025 & 2026 sample PDF handbooks
+├── requirements.txt           # Python dependencies
+├── README.md                  # Project documentation
+├── sample_docs/               # Sample versioned handbooks
+│   ├── handbook_2025.pdf      # (75% attendance, 4 backlogs)
+│   └── handbook_2026.pdf      # (80% attendance, 2 backlogs)
+├── data/                      # Uploaded institutional PDF storage
+└── cache/                     # Embedding cache
 ```
 
-The exact structure may differ depending on the implementation.
+---
 
-------------------------------------------------------------------------
+## 🚀 Installation & Local Execution
 
-# 💻 System Requirements
-
-Recommended:
-
--   Python 3.10 or newer
--   8 GB RAM or more
--   Windows, Linux, or macOS
--   Ollama installed locally
--   Internet connection for the initial model and embedding-model
-    download
--   Sufficient disk space for PDF files, models, and indexes
-
-A dedicated GPU is not required for the basic CPU-based implementation.
-
-------------------------------------------------------------------------
-
-# 📦 Installation
-
-## 1. Clone or Download the Project
-
-``` bash
-git clone <YOUR-GITHUB-REPOSITORY-URL>
-cd institutional_handbook_copilot
-```
-
-Or download the project ZIP and extract it.
-
-------------------------------------------------------------------------
-
-## 2. Create a Virtual Environment
-
-### Windows
-
-``` bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-### Linux / macOS
-
-``` bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-------------------------------------------------------------------------
-
-## 3. Install Python Dependencies
-
-``` bash
+### 1. Install Python Dependencies
+```bash
 python -m pip install -r requirements.txt
 ```
 
-Example `requirements.txt`:
-
-``` text
-Flask
-PyMuPDF
-sentence-transformers
-faiss-cpu
-numpy
-requests
-```
-
-------------------------------------------------------------------------
-
-# 🤖 Ollama Setup
-
-Install Ollama on the local computer.
-
-After installation, download a compatible local model.
-
-For example:
-
-``` bash
+### 2. (Optional) Run Local LLM via Ollama
+```bash
 ollama pull llama3.2:3b
+ollama serve
+```
+*(Note: If Ollama is not running, the application automatically runs its deterministic grounded synthesis engine—zero setup friction, zero paid APIs).*
+
+### 3. Launch the Streamlit Web Application
+```bash
+python -m streamlit run app.py
+```
+Open [http://localhost:8501](http://localhost:8501) in your browser.
+
+---
+
+## 🧪 Automated Demo & Test Suite
+
+Run the test suite:
+```bash
+python demo_test.py
 ```
 
-Or, if the project configuration uses Qwen:
+### Verified Test Output:
+```text
+======================================================================
+INSTITUTIONAL HANDBOOK COPILOT — AUTOMATED DEMO TEST SUITE
+======================================================================
+[Step 1] Verified sample handbooks:
+  • Older: sample_docs/handbook_2025.pdf
+  • Newer: sample_docs/handbook_2026.pdf
+
+[Step 2] Ingesting and indexing documents...
+  • Ingested handbook_2025.pdf: Detected Version='Effective August 1, 2024', Chunks=3
+  • Ingested handbook_2026.pdf: Detected Version='Effective August 1, 2025', Chunks=3
+----------------------------------------------------------------------
+RUNNING TEST_CASE_1: Conflict detection on numerical percentage (Attendance 75% -> 80%)
+Query: "What is the minimum attendance requirement?"
+----------------------------------------------------------------------
+[Application Output]:
+The current minimum attendance requirement is 80%. (The older Effective August 1, 2024 handbook specified 75%.)
+
+⚠️ This contradicts an older version.
 
-``` bash
-ollama pull qwen2.5:3b
-```
-
-Check installed models:
-
-``` bash
-ollama list
-```
-
-The exact model name must match the model configured in `app.py`.
-
-------------------------------------------------------------------------
-
-# ▶️ Running the Application
-
-Start Ollama first.
-
-Then run the Flask application:
-
-``` bash
-python app.py
-```
-
-The terminal should show a local Flask address similar to:
-
-``` text
-http://127.0.0.1:5000
-```
-
-Open the address in a web browser.
-
-``` text
-http://127.0.0.1:5000
-```
-
-------------------------------------------------------------------------
-
-# 📄 Using the Application
-
-## Step 1 --- Upload a PDF
-
-Select an institutional handbook or policy document.
-
-Example:
-
-``` text
-Harvard.pdf
-```
-
-------------------------------------------------------------------------
-
-## Step 2 --- Process the Document
-
-Click:
-
-``` text
-Process University Documents
-```
-
-The system extracts the document content and creates the semantic
-knowledge base.
-
-------------------------------------------------------------------------
-
-## Step 3 --- Ask a Question
-
-Example:
-
-``` text
-What is the grading system used by the institution?
-```
-
-------------------------------------------------------------------------
-
-## Step 4 --- Retrieval
-
-The question is converted into an embedding.
-
-FAISS then searches the indexed document chunks and retrieves the most
-relevant evidence.
-
-------------------------------------------------------------------------
-
-## Step 5 --- Local Generation
-
-The retrieved evidence is passed to the local Ollama model.
-
-The model generates a grounded response.
-
-------------------------------------------------------------------------
-
-## Step 6 --- Review Sources
-
-The answer should contain information such as:
-
-``` text
-Answer:
-...
-
-Source:
-Harvard.pdf
-
-Page:
-42
-```
-
-If multiple versions conflict, the system should display the conflict
-information.
-
-------------------------------------------------------------------------
-
-# 🔬 Example RAG Flow
-
-``` text
-Question
-   │
-   ▼
-"What is the grading system?"
-   │
-   ▼
-MiniLM Query Embedding
-   │
-   ▼
-FAISS Similarity Search
-   │
-   ▼
-Top Relevant Chunks
-   │
-   ▼
-Version / Conflict Analysis
-   │
-   ▼
-Relevant Evidence
-   │
-   ▼
-Ollama Local LLM
-   │
-   ▼
-Grounded Answer
-   │
-   ▼
-Page-Level Citation
-```
-
-------------------------------------------------------------------------
-
-# 🧪 Demonstration Tests
-
-## Test 1 --- Normal Question
-
-### Question
-
-``` text
-What is the grading system used by the institution?
-```
-
-### Expected behavior
-
-The system should retrieve the relevant grading section and answer using
-the retrieved document evidence.
-
-------------------------------------------------------------------------
-
-## Test 2 --- Policy Question
-
-### Question
-
-``` text
-What is the minimum attendance requirement?
-```
-
-The answer should include the relevant policy and page citation.
-
-If multiple handbook versions contain different values, the system
-should show the conflict.
-
-------------------------------------------------------------------------
-
-## Test 3 --- Version Conflict
-
-### Documents
-
-``` text
-Handbook_2025.pdf
-Handbook_2026.pdf
-```
-
-### Question
-
-``` text
-What is the minimum attendance requirement?
-```
-
-### Expected behavior
-
-``` text
 Current policy:
-Handbook_2026.pdf — Page XX
+handbook_2026.pdf (Effective August 1, 2025) — Page 1
 
-⚠️ Older conflicting policy:
-Handbook_2025.pdf — Page XX
-```
+Older policy:
+handbook_2025.pdf (Effective August 1, 2024) — Page 1
 
-The exact answer depends on the contents of the uploaded documents.
+[Conflict Detected]: True
+[Citations Provided]:
+  - Current Policy: handbook_2026.pdf (vEffective August 1, 2025) Page 1
+  - Older Conflicting Policy: handbook_2025.pdf (vEffective August 1, 2024) Page 1
 
-------------------------------------------------------------------------
+✅ TEST_CASE_1 PASSED
+----------------------------------------------------------------------
+RUNNING TEST_CASE_2: Conflict detection on quantitative limit (Backlogs 4 -> 2)
+Query: "How many backlogs are allowed for promotion?"
+----------------------------------------------------------------------
+[Application Output]:
+The current policy allows up to 2 backlogs for promotion. (The older Effective August 1, 2024 handbook permitted 4 backlogs.)
 
-## Test 4 --- Unsupported Question
+⚠️ This contradicts an older version.
 
-### Question
+Current policy:
+handbook_2026.pdf (Effective August 1, 2025) — Page 1
 
-``` text
-What is the cafeteria menu?
-```
+Older policy:
+handbook_2025.pdf (Effective August 1, 2024) — Page 1
 
-If the information is not present:
+[Conflict Detected]: True
+[Citations Provided]:
+  - Current Policy: handbook_2026.pdf (vEffective August 1, 2025) Page 1
+  - Older Conflicting Policy: handbook_2025.pdf (vEffective August 1, 2024) Page 1
 
-``` text
+✅ TEST_CASE_2 PASSED
+----------------------------------------------------------------------
+RUNNING TEST_CASE_3: Grounded rejection of unsupported query
+Query: "What is the cafeteria menu?"
+----------------------------------------------------------------------
+[Application Output]:
 I could not find this information in the provided documents.
+
+[Conflict Detected]: False
+[Citations Provided]:
+
+✅ TEST_CASE_3 PASSED
+======================================================================
+ALL TESTS PASSED SUCCESSFULLY! (3/3)
+======================================================================
 ```
 
-The system should not generate an unsupported answer.
-
-------------------------------------------------------------------------
-
-# ⚡ Performance Optimization
-
-The application is designed for a normal student laptop using local
-resources.
-
-Optimization techniques include:
-
--   Cached embedding model
--   Cached FAISS index
--   CPU-compatible FAISS
--   Local Ollama inference
--   Limited retrieval context
--   Short generated answers
--   Page-aware chunking
--   No paid cloud inference
-
-The first execution can take longer because the embedding model and
-local LLM need to be downloaded and initialized.
-
-------------------------------------------------------------------------
-
-# 🔐 Privacy and Cost
-
-A major objective of the project is **local AI processing**.
-
-The main workflow is:
-
-``` text
-PDF
- ↓
-Local Flask Application
- ↓
-Local Embeddings
- ↓
-Local FAISS
- ↓
-Local Ollama
- ↓
-Local Answer
-```
-
-No paid cloud LLM API is required for the core system.
-
-This makes the architecture suitable for institutional documents where
-keeping document content on the local machine is desirable.
-
-------------------------------------------------------------------------
-
-# ⚠️ Limitations
-
-System performance depends on:
-
--   PDF text quality
--   Semantic retrieval quality
--   Chunking strategy
--   Correct version detection
--   Similarity between conflicting sections
--   Clarity of policy language
--   Local hardware performance
-
-Scanned image-only PDFs may require OCR.
-
-Documents without clear version information may require manual version
-labeling.
-
-The system should not be treated as a replacement for official
-institutional policy documents.
-
-------------------------------------------------------------------------
-
-# 🔮 Future Improvements
-
-Possible future improvements include:
-
--   OCR for scanned PDFs
--   Hybrid BM25 + semantic search
--   Cross-encoder reranking
--   Sentence-level citations
--   Table extraction
--   Automatic policy-topic classification
--   Policy-change timeline
--   Side-by-side version comparison
--   Document change tracking
--   Multi-language support
--   Authentication
--   Role-based access control
--   Persistent database storage
--   Docker deployment
--   Optional cloud deployment
-
-------------------------------------------------------------------------
-
-# 🎯 Project Objective
-
-Institutional Handbook Copilot transforms long institutional documents
-into a searchable, explainable, and version-aware knowledge system.
-
-Instead of only answering:
-
-> **What does the handbook say?**
-
-the system is designed to answer:
-
-> **What is the current policy, what did the older version say, and did
-> the policy change?**
-
-------------------------------------------------------------------------
-
-# 📊 Evaluation Metrics
-
-The RAG system can be evaluated using:
-
-### Retrieval Metrics
-
--   Recall@K
--   Precision@K
--   Mean Reciprocal Rank (MRR)
-
-### Answer Metrics
-
--   Answer relevance
--   Context relevance
--   Faithfulness
--   Citation accuracy
-
-### System Metrics
-
--   Retrieval latency
--   Response generation time
--   End-to-end response time
-
-------------------------------------------------------------------------
-
-# 🧩 Core Project Components
-
-``` text
-RAG
- +
-Semantic Search
- +
-FAISS Retrieval
- +
-Version Awareness
- +
-Conflict Detection
- +
-Page-Level Citations
- +
-Local LLM Inference
- +
-Flask Web Application
-```
-
-Together, these components create a transparent document
-question-answering system for large and evolving institutional
-documents.
-
-------------------------------------------------------------------------
-
-# 🏆 Project Highlights
-
-### Local AI
-
-Runs the core AI pipeline locally using Ollama.
-
-### RAG
-
-Answers are generated using retrieved institutional document evidence.
-
-### Semantic Search
-
-Uses MiniLM embeddings instead of relying only on keyword matching.
-
-### Version Awareness
-
-Handles multiple versions of institutional documents.
-
-### Conflict Detection
-
-Identifies contradictory policy statements across versions.
-
-### Citation-Aware Answers
-
-Provides document and page references for verification.
-
-### Hallucination Resistance
-
-Returns a not-found response when the required information is not
-supported by the documents.
-
-### Flask Deployment
-
-The complete application is accessible through a local Flask server.
-
-``` text
-http://127.0.0.1:5000
-```
-
-------------------------------------------------------------------------
-
-# 👨‍💻 Project Summary
-
-**Project:** Institutional Handbook Copilot
-
-**Category:** Artificial Intelligence / Machine Learning / Generative AI
-/ NLP
-
-**Core Technology:** Retrieval-Augmented Generation (RAG)
-
-**Web Framework:** Flask
-
-**Vector Search:** FAISS
-
-**Embedding Model:** `all-MiniLM-L6-v2`
-
-**Local LLM:** Ollama
-
-**PDF Processing:** PyMuPDF
-
-**Deployment:** Localhost
-
-**Primary Goal:** Intelligent, citation-aware question answering over
-large institutional documents.
-
-------------------------------------------------------------------------
-
-# 📌 Final Run Command
-
-``` bash
-python app.py
-```
-
-Then open:
-
-``` text
-http://127.0.0.1:5000
-```
-
-------------------------------------------------------------------------
-
-## 📜 License
-
-Add the license appropriate for your project and repository.
-
-For example:
-
-``` text
-MIT License
-```
-
-if you choose to release the project under the MIT License.
+---
+
+## 🛡️ Acceptance Criteria Checklist
+
+| Requirement | Status | Implementation |
+|---|---|---|
+| Upload one or multiple 100+ page PDFs | ✅ Complete | Page-aware chunker with overlap and metadata retention |
+| Automatic version detection | ✅ Complete | Multi-tier regex: Effective Date > Pub Date > Version > AY > Filename |
+| Dense semantic retrieval | ✅ Complete | MiniLM-L6-v2 + FAISS cosine similarity (8–12 candidates) |
+| Grounded factual answers | ✅ Complete | Strict prompt constraint & zero hallucination policy |
+| Detect contradictory policies | ✅ Complete | Deterministic entity & numerical divergence engine |
+| Prioritize newer policy | ✅ Complete | Enforces highest version score as primary answer |
+| Disclose older conflicting policy | ✅ Complete | Explicit `"⚠️ This contradicts an older version."` notice |
+| Dual page citations | ✅ Complete | Displays current edition & historical edition page numbers |
+| Reject unsupported questions | ✅ Complete | `"I could not find this information in the provided documents."` |
+| Privacy & zero paid APIs | ✅ Complete | Runs locally on CPU with Ollama / deterministic synthesis |
+| Automated verification test | ✅ Complete | `demo_test.py` passes all 3 scenarios (3/3) |
+| Live Web Application Preview | ✅ Complete | Deployed on Google Cloud Run |
+
+---
+
+## 📄 License
+This project is licensed under the Apache-2.0 License.
