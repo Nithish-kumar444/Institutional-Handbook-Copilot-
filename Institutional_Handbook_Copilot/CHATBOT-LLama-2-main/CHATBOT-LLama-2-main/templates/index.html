@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>University AI Assistant</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap');
+  :root { color-scheme:dark; --bg:#000; --fg:#fff; --mut:rgba(255,255,255,.62); --line:rgba(255,255,255,.16); --panel:#0c0c0c; --panel2:#161616; --glass:rgba(8,8,8,.72); --glow:rgba(255,255,255,.13); --dot:255,255,255; }
+  [data-theme=light] { color-scheme:light; --bg:#fff; --fg:#000; --mut:rgba(0,0,0,.6); --line:rgba(0,0,0,.16); --panel:#f5f5f5; --panel2:#ebebeb; --glass:rgba(250,250,250,.75); --glow:rgba(0,0,0,.09); --dot:0,0,0; }
+  * { box-sizing:border-box; }
+  body { margin:0; height:100vh; display:flex; overflow:hidden; font-family:Inter,system-ui,sans-serif; background:var(--bg); color:var(--fg); transition:background .5s,color .5s; }
+  h1,h2,h3,.title,.brand { font-family:'Space Grotesk',Inter,sans-serif; }
+  #bg { position:fixed; inset:0; width:100%; height:100%; z-index:0; }
+  #spot { position:fixed; inset:0; z-index:1; pointer-events:none; background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%),var(--glow),transparent 70%); }
+  aside, main { position:relative; z-index:2; }
+  aside { width:310px; flex-shrink:0; background:var(--glass); backdrop-filter:blur(14px); padding:20px 18px; overflow-y:auto; border-right:1px solid var(--line); animation:slideIn .7s cubic-bezier(.2,.9,.2,1) both; }
+  aside h3 { margin:18px 0 8px; font-size:16px; letter-spacing:.02em; }
+  aside hr { border:0; border-top:1px solid var(--line); margin:16px 0; }
+  .brand { display:flex; align-items:center; justify-content:space-between; font-size:18px; font-weight:700; margin-bottom:6px; }
+  #theme { width:38px; height:38px; margin:0; padding:0; border-radius:50%; font-size:18px; }
+  main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  #scroll { flex:1; overflow-y:auto; padding:28px 40px 12px; }
+  #scroll > * { animation:rise .7s cubic-bezier(.2,.9,.2,1) both; }
+  #scroll > :nth-child(2) { animation-delay:.08s; } #scroll > :nth-child(3) { animation-delay:.16s; } #scroll > :nth-child(5) { animation-delay:.24s; }
+  .title { font-size:38px; font-weight:700; margin:0 0 4px; background:linear-gradient(90deg,var(--fg),var(--mut),var(--fg)); background-size:200% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:rise .7s both,shine 6s linear infinite; }
+  .subtitle { color:var(--mut); margin-bottom:18px; }
+  #heading { margin:0 0 4px; font-size:22px; }
+  .swap { animation:rise .5s both; }
+  .notice { position:relative; overflow:hidden; padding:10px 12px; border-radius:10px; font-size:14px; margin:8px 0; background:var(--panel2); border:1px solid var(--line); }
+  .ok::before { content:""; display:inline-block; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--fg); animation:pulse 1.6s infinite; }
+  .err::before { content:"! "; font-weight:700; } .info::before { content:"i  "; font-weight:700; opacity:.7; } .err { border-style:dashed; }
+  .load::after { content:""; position:absolute; left:-40%; bottom:0; height:2px; width:40%; background:var(--fg); animation:slide 1.2s infinite; }
+  select, input[type=text] { width:100%; padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--fg); font:inherit; transition:border-color .2s,box-shadow .2s; }
+  select:focus, input[type=text]:focus { outline:0; border-color:var(--fg); box-shadow:0 0 0 4px var(--glow); }
+  label.radio { position:relative; display:block; padding:10px 14px; margin:6px 0; border:1px solid var(--line); border-radius:12px; cursor:pointer; transition:background .3s,color .3s,transform .2s; }
+  label.radio input { position:absolute; opacity:0; pointer-events:none; }
+  label.radio:hover { transform:translateX(4px); }
+  label.radio:has(input:checked) { background:var(--fg); color:var(--bg); }
+  label.radio:has(input:focus-visible) { outline:2px solid var(--fg); outline-offset:2px; }
+  input[type=file] { width:100%; font-size:13px; margin:6px 0; }
+  button { position:relative; font:inherit; padding:9px 14px; border-radius:10px; border:1px solid var(--line); color:var(--fg); cursor:pointer; width:100%; margin-top:8px; background:linear-gradient(var(--fg),var(--fg)) no-repeat 0 100%/100% 0; transition:background-size .3s,color .3s,transform .2s ease-out; }
+  button:hover:not(:disabled) { background-size:100% 100%; color:var(--bg); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.solid, #send { background:var(--fg); color:var(--bg); border-color:var(--fg); }
+  button.solid:hover:not(:disabled), #send:hover:not(:disabled) { color:var(--bg); opacity:.85; }
+  .caption { font-size:13px; color:var(--mut); margin:2px 0; }
+  .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:14px 0; }
+  .metric { position:relative; overflow:hidden; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; transition:transform .15s ease-out,border-color .3s; }
+  .metric::before { content:""; position:absolute; inset:0; opacity:0; transition:opacity .3s; background:radial-gradient(180px circle at var(--gx,50%) var(--gy,50%),var(--glow),transparent 70%); }
+  .metric:hover { border-color:var(--fg); } .metric:hover::before { opacity:1; }
+  .metric small { color:var(--mut); } .metric b { display:block; font:700 30px 'Space Grotesk',sans-serif; }
+  #chat { padding-bottom:8px; }
+  .msg { display:flex; gap:10px; margin:14px 0; max-width:820px; transform-origin:left bottom; animation:pop .5s cubic-bezier(.2,1.35,.4,1) both; }
+  .msg.user { flex-direction:row-reverse; margin-left:auto; transform-origin:right bottom; }
+  .avatar { width:34px; height:34px; border-radius:50%; flex-shrink:0; display:grid; place-items:center; font:700 12px 'Space Grotesk',sans-serif; border:1px solid var(--line); background:var(--panel2); }
+  .msg.user .avatar { background:var(--fg); color:var(--bg); }
+  .body { flex:0 1 auto; max-width:calc(100% - 46px); min-width:0; padding:12px 16px; border-radius:18px 18px 18px 4px; background:var(--panel); border:1px solid var(--line); white-space:pre-wrap; word-wrap:break-word; line-height:1.55; }
+  .msg.user .body { background:var(--fg); color:var(--bg); border-color:var(--fg); border-radius:18px 18px 4px 18px; }
+  .dots i { display:inline-block; width:7px; height:7px; margin:0 2px; border-radius:50%; background:currentColor; animation:bounce 1s infinite; }
+  .dots i:nth-child(2) { animation-delay:.15s; } .dots i:nth-child(3) { animation-delay:.3s; }
+  details { margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:8px 12px; white-space:normal; }
+  summary { cursor:pointer; font-size:14px; }
+  details[open] .source-box { animation:rise .35s both; }
+  .source-box { padding:10px; border-radius:10px; border:1px solid var(--line); margin:8px 0; font-size:14px; }
+  .source-box .snip { display:block; margin-top:6px; font-size:13px; color:var(--mut); }
+  #empty { display:flex; flex-direction:column; align-items:center; text-align:center; padding:34px 0 10px; }
+  #empty h2 { margin:18px 0 14px; font-size:26px; }
+  .orb { width:64px; height:64px; border-radius:50%; border:2px solid var(--fg); position:relative; animation:float 3.5s ease-in-out infinite; }
+  .orb::after { content:""; position:absolute; inset:-2px; border-radius:50%; border:2px solid var(--fg); animation:ping 2.4s ease-out infinite; }
+  .chips { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; max-width:640px; }
+  .chip { width:auto; margin:0; border-radius:999px; animation:pop .6s cubic-bezier(.2,1.35,.4,1) both; }
+  #bar { padding:12px 40px 22px; }
+  #inputRow { display:flex; gap:10px; max-width:820px; }
+  #q { flex:1; padding:13px 18px; border-radius:999px; }
+  #send { width:auto; margin:0; padding:10px 26px; border-radius:999px; }
+  .foot { font-size:12px; color:var(--mut); margin-top:8px; }
+  #toasts { position:fixed; right:20px; bottom:20px; z-index:200; display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
+  .toast { padding:11px 18px; border-radius:12px; background:var(--fg); color:var(--bg); font-size:14px; box-shadow:0 8px 30px rgba(0,0,0,.35); animation:toastIn .45s cubic-bezier(.2,1.4,.4,1) both; }
+  .toast.out { animation:toastOut .3s ease-in forwards; }
+  #modal { position:fixed; inset:0; z-index:150; display:grid; place-items:center; background:rgba(0,0,0,.55); backdrop-filter:blur(5px); opacity:0; pointer-events:none; transition:opacity .25s; }
+  #modal.open { opacity:1; pointer-events:auto; }
+  .dlg { width:min(380px,90vw); padding:24px; border-radius:20px; background:var(--bg); border:1px solid var(--fg); transform:scale(.8) translateY(20px); transition:transform .4s cubic-bezier(.2,1.4,.4,1); }
+  #modal.open .dlg { transform:none; }
+  .dlg h3 { margin:0 0 6px; font-size:20px; } .dlg p { margin:0 0 16px; color:var(--mut); }
+  .acts { display:flex; gap:10px; } .acts button { margin:0; }
+  #ring, #dot, .ping { position:fixed; left:0; top:0; pointer-events:none; border-radius:50%; mix-blend-mode:difference; z-index:300; }
+  #ring { width:34px; height:34px; margin:-17px 0 0 -17px; border:1.5px solid #fff; opacity:0; transition:width .25s,height .25s,margin .25s,background .25s,opacity .3s; }
+  #ring.hover { width:56px; height:56px; margin:-28px 0 0 -28px; background:rgba(255,255,255,.18); }
+  #dot { width:6px; height:6px; margin:-3px 0 0 -3px; background:#fff; opacity:0; }
+  .ping { width:10px; height:10px; margin:-5px 0 0 -5px; border:1.5px solid #fff; z-index:299; animation:ping .6s ease-out forwards; }
+  :focus-visible { outline:2px solid var(--fg); outline-offset:2px; }
+  @keyframes slideIn { from { opacity:0; transform:translateX(-40px); } }
+  @keyframes rise { from { opacity:0; transform:translateY(16px); } }
+  @keyframes pop { 0% { opacity:0; transform:translateY(18px) scale(.9); } 100% { opacity:1; transform:none; } }
+  @keyframes toastIn { from { opacity:0; transform:translateX(60px) scale(.9); } }
+  @keyframes toastOut { to { opacity:0; transform:translateX(60px); } }
+  @keyframes bounce { 0%,60%,100% { transform:translateY(0); opacity:.5; } 30% { transform:translateY(-6px); opacity:1; } }
+  @keyframes pulse { 50% { opacity:.3; transform:scale(.7); } }
+  @keyframes slide { to { left:100%; } }
+  @keyframes shine { to { background-position:-200% 0; } }
+  @keyframes float { 50% { transform:translateY(-8px); } }
+  @keyframes ping { to { transform:scale(8); opacity:0; } }
+  @media (pointer:coarse) { #ring, #dot, .ping { display:none; } }
+  @media (max-width:820px) { body { flex-direction:column; height:auto; overflow:auto; } aside { width:100%; border-right:0; } #scroll, #bar { padding-left:16px; padding-right:16px; } }
+  /* ---- NEON ACCENTS (base stays black and white) ---- */
+  :root { --n1:#00f0ff; --n2:#ff2bd6; --n3:#b6ff00; --n4:#8a5cff; --neon:linear-gradient(90deg,var(--n1),var(--n4),var(--n2),var(--n3),var(--n1)); }
+  #spot { background:radial-gradient(460px circle at var(--mx,50%) var(--my,50%),rgba(0,240,255,.17),rgba(255,43,214,.09) 45%,transparent 72%); }
+  .title { background:var(--neon); background-size:300% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 0 10px rgba(0,240,255,.4)); animation:rise .7s both,neonflow 8s linear infinite; }
+  .brand span { text-shadow:0 0 12px var(--n1); }
+  #ring, #dot, .ping { mix-blend-mode:normal; }
+  #ring { border-color:var(--n1); box-shadow:0 0 12px var(--n1),inset 0 0 8px var(--n1); animation:hue 8s linear infinite; }
+  #ring.hover { border-color:var(--n2); background:rgba(255,43,214,.14); box-shadow:0 0 18px var(--n2),inset 0 0 10px var(--n2); }
+  #dot { background:var(--n2); box-shadow:0 0 10px var(--n2),0 0 20px var(--n2); animation:hue 8s linear infinite; }
+  .orb { border-color:var(--n1); box-shadow:0 0 20px var(--n1),inset 0 0 14px rgba(0,240,255,.4); animation:float 3.5s ease-in-out infinite,hue 6s linear infinite; }
+  .orb::after { border-color:var(--n2); }
+  .dots i { background:var(--n1); box-shadow:0 0 8px var(--n1); }
+  .dots i:nth-child(2) { background:var(--n2); box-shadow:0 0 8px var(--n2); } .dots i:nth-child(3) { background:var(--n3); box-shadow:0 0 8px var(--n3); }
+  .msg.assistant .body { --fc:var(--n1); animation:flash 1.5s ease-out; } .msg.user .body { --fc:var(--n2); animation:flash 1.5s ease-out; }
+  .toast { background:var(--bg); color:var(--fg); border:1px solid var(--n1); box-shadow:0 0 14px var(--n1),0 0 36px rgba(0,240,255,.35); animation:toastIn .45s cubic-bezier(.2,1.4,.4,1) both,hue 6s linear infinite; }
+  .dlg { border-color:var(--n2); box-shadow:0 0 24px rgba(255,43,214,.55),0 0 70px rgba(0,240,255,.25); }
+  #mYes { background:var(--n2); border-color:var(--n2); color:#000; box-shadow:0 0 16px var(--n2); }
+  button:hover:not(:disabled) { border-color:var(--n1); box-shadow:0 0 14px rgba(0,240,255,.6); }
+  #send { box-shadow:0 0 14px rgba(0,240,255,.55); } #send:hover:not(:disabled) { box-shadow:0 0 24px var(--n2); }
+  .chip { border-color:rgba(0,240,255,.5); } .chip:hover:not(:disabled) { box-shadow:0 0 18px var(--n2); border-color:var(--n2); }
+  select:focus, input[type=text]:focus { border-color:var(--n1); box-shadow:0 0 0 3px rgba(0,240,255,.25),0 0 18px rgba(0,240,255,.35); }
+  :focus-visible { outline-color:var(--n1); }
+  label.radio:has(input:checked) { border-color:var(--n1); box-shadow:0 0 16px rgba(0,240,255,.5); }
+  .ok::before { background:var(--n3); box-shadow:0 0 8px var(--n3); }
+  .err { border-color:var(--n2); } .err::before { color:var(--n2); } .info::before { color:var(--n1); opacity:1; }
+  .load::after { height:3px; background:var(--neon); box-shadow:0 0 8px var(--n1); }
+  .metric::before { background:radial-gradient(180px circle at var(--gx,50%) var(--gy,50%),rgba(0,240,255,.25),rgba(255,43,214,.12) 50%,transparent 75%); }
+  .metric:hover { border-color:var(--n1); box-shadow:0 0 22px rgba(0,240,255,.35); } .metric:hover b { color:var(--n1); text-shadow:0 0 12px var(--n1); }
+  details[open] { border-color:var(--n4); box-shadow:0 0 16px rgba(138,92,255,.4); } summary:hover { color:var(--n1); }
+  ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-thumb { background:linear-gradient(var(--n1),var(--n2)); border-radius:8px; }
+  @keyframes hue { to { filter:hue-rotate(360deg); } }
+  @keyframes neonflow { to { background-position:150% 0; } }
+  @keyframes flash { 0% { border-color:var(--fc); box-shadow:0 0 22px var(--fc),0 0 48px var(--fc); } 100% { box-shadow:0 0 0 transparent; } }
+  /* ---- NEON v2: black/white surfaces, color only where things move or pop up ---- */
+  [data-theme=light] { --n1:#00b8d4; --n2:#ff1fbf; --n3:#5fbf00; --n4:#7a45ff; }
+  @property --a { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+  @keyframes spin { to { --a:360deg; } }
+  @keyframes blink { 50% { opacity:0; } }
+  @keyframes headflash { 0% { text-shadow:0 0 18px var(--n2),0 0 42px var(--n1); } 100% { text-shadow:0 0 0 transparent; } }
+  @keyframes drain { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+
+  /* sidebar section markers, one neon per section */
+  aside h3::before { content:""; display:inline-block; width:4px; height:14px; margin-right:9px; vertical-align:-1px; border-radius:2px; background:var(--n1); box-shadow:0 0 8px var(--n1); }
+  aside h3:nth-of-type(2)::before { background:var(--n2); box-shadow:0 0 8px var(--n2); }
+  aside h3:nth-of-type(3)::before { background:var(--n3); box-shadow:0 0 8px var(--n3); }
+  aside h3:nth-of-type(4)::before { background:var(--n4); box-shadow:0 0 8px var(--n4); }
+
+  /* status notices: neon edge tells you the state */
+  .notice { border-left:3px solid var(--n1); }
+  .notice.ok { border-left-color:var(--n3); }
+  .notice.err { border-left-color:var(--n2); }
+  .notice.info { border-left-color:var(--n1); }
+
+  /* each mode gets its own neon when selected */
+  label.radio:hover { border-color:var(--n2); box-shadow:0 0 12px rgba(255,43,214,.35); }
+  label.radio:has(input[value=harvard]:checked) { border-color:var(--n2); box-shadow:0 0 16px rgba(255,43,214,.55); }
+  label.radio:has(input[value=custom]:checked) { border-color:var(--n3); box-shadow:0 0 16px rgba(182,255,0,.5); }
+
+  /* heading flashes neon when the mode changes */
+  .swap { animation:rise .5s both,headflash .9s ease-out; }
+
+  /* empty-state orb gets a third ring */
+  .orb::before { content:""; position:absolute; inset:-2px; border-radius:50%; border:2px solid var(--n3); animation:ping 2.4s ease-out 1.2s infinite; }
+
+  /* suggestion chips: three neons, fill on hover */
+  .chip { --c:var(--n1); background-image:linear-gradient(var(--c),var(--c)); border-color:color-mix(in srgb,var(--c) 65%,transparent); }
+  .chip:nth-child(2) { --c:var(--n2); } .chip:nth-child(3) { --c:var(--n3); }
+  .chip:hover:not(:disabled) { color:#000; border-color:var(--c); box-shadow:0 0 20px var(--c); }
+
+  /* send button flows through the neons on hover */
+  #send:hover:not(:disabled) { opacity:1; color:#000; border-color:transparent; background:var(--neon); background-size:200% 100%; box-shadow:0 0 22px var(--n2); animation:neonflow 2s linear infinite; }
+
+  /* avatars */
+  .msg.assistant .avatar { color:var(--n1); border-color:var(--n1); box-shadow:0 0 12px rgba(0,240,255,.5); }
+  .msg.user .avatar { border-color:var(--n2); box-shadow:0 0 12px rgba(255,43,214,.55); }
+
+  /* streaming caret */
+  .body.streaming::after { content:""; display:inline-block; width:8px; height:16px; margin-left:3px; vertical-align:-2px; background:var(--n1); box-shadow:0 0 10px var(--n1); animation:blink 1s steps(2) infinite; }
+
+  /* sources */
+  .source-box { border-left:3px solid var(--n4); }
+  summary::marker { color:var(--n4); }
+
+  /* metric cards: a neon top edge each */
+  .metric { --mc:var(--n1); border-top:2px solid var(--mc); }
+  .metric:nth-child(2) { --mc:var(--n2); } .metric:nth-child(3) { --mc:var(--n3); }
+  .metric:hover { border-color:var(--mc); box-shadow:0 0 22px color-mix(in srgb,var(--mc) 45%,transparent); }
+  .metric:hover b { color:var(--mc); text-shadow:0 0 12px var(--mc); }
+
+  /* popups: toast with typed colors and a draining timer bar */
+  .toast { position:relative; overflow:hidden; padding-bottom:14px; }
+  .toast::after { content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--neon); transform-origin:left; animation:drain 2.8s linear forwards; }
+  .toast.ok { border-color:var(--n3); box-shadow:0 0 14px var(--n3),0 0 36px rgba(182,255,0,.3); animation:toastIn .45s cubic-bezier(.2,1.4,.4,1) both; }
+  .toast.ok::after { background:var(--n3); box-shadow:0 0 8px var(--n3); }
+  .toast.err { border-color:var(--n2); box-shadow:0 0 14px var(--n2),0 0 36px rgba(255,43,214,.35); animation:toastIn .45s cubic-bezier(.2,1.4,.4,1) both; }
+  .toast.err::after { background:var(--n2); box-shadow:0 0 8px var(--n2); }
+  .toast.out { animation:toastOut .3s ease-in forwards; }
+
+  /* popups: confirm dialog with a spinning neon ring and tinted backdrop */
+  #modal { background:radial-gradient(circle at 50% 50%,rgba(138,92,255,.28),rgba(0,0,0,.66) 70%); }
+  .dlg { position:relative; }
+  .dlg::before { content:""; position:absolute; inset:-2px; padding:2px; border-radius:22px; pointer-events:none; background:conic-gradient(from var(--a),var(--n1),var(--n2),var(--n3),var(--n4),var(--n1)); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; animation:spin 4s linear infinite; }
+
+  @media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas><div id="spot"></div><div id="ring"></div><div id="dot"></div>
+<div id="toasts"></div>
+<div id="modal"><div class="dlg" role="dialog" aria-modal="true"><h3 id="mTitle"></h3><p id="mText"></p><div class="acts"><button id="mNo">Cancel</button><button id="mYes" class="solid">Clear</button></div></div></div>
+
+<aside>
+  <div class="brand"><span>University AI</span><button id="theme" title="Switch black / white theme" aria-label="Switch theme">&#9680;</button></div>
+  <h3>Configuration</h3>
+  <div id="ollamaStatus" class="notice info load">Checking Ollama…</div>
+  <label class="caption" for="model">Ollama Model</label>
+  <select id="model"><option>{{ default_model }}</option></select>
+  <hr>
+  <h3>University Mode</h3>
+  <label class="radio"><input type="radio" name="mode" value="general" checked> General Chat</label>
+  <label class="radio"><input type="radio" name="mode" value="harvard"> 1. Harvard Chat</label>
+  <label class="radio"><input type="radio" name="mode" value="custom"> 2. Upload University PDF</label>
+  <hr>
+  <h3>Retrieval</h3>
+  <div class="notice ok">Semantic Search</div>
+  <div class="caption">MiniLM embeddings + FAISS</div>
+  <div class="caption">Top results: {{ top_k }}</div>
+  <hr>
+  <h3>Knowledge Base</h3>
+  <div id="harvardBox" hidden>
+    <div class="notice info">Using Harvard documents stored in <code>harvard_docs/</code>.</div>
+    <button id="reloadBtn">Reload Harvard Documents</button>
+  </div>
+  <div id="customBox" hidden>
+    <input type="file" id="files" accept="application/pdf" multiple>
+    <input type="text" id="uname" placeholder="Example: CMR University">
+    <button id="processBtn">Process University Documents</button>
+  </div>
+  <hr>
+  <button id="clearBtn">Clear Chat</button>
+</aside>
+
+<main>
+  <div id="scroll">
+    <div class="title">University AI Assistant</div>
+    <div class="subtitle">Fast semantic RAG assistant powered by local Ollama and university documents</div>
+    <h2 id="heading">General Chatbot</h2>
+    <div id="kbNotice"></div>
+    <div class="metrics" style="display:none">
+      <div class="metric"><small>Knowledge Chunks</small><b id="mChunks">–</b></div>
+      <div class="metric"><small>Documents</small><b id="mDocs">–</b></div>
+      <div class="metric"><small>Pages</small><b id="mPages">–</b></div>
+    </div>
+    <div id="chat"></div>
+  </div>
+  <div id="bar">
+    <div id="inputRow">
+      <input type="text" id="q" placeholder="Ask a question…" autocomplete="off">
+      <button id="send">Send</button>
+    </div>
+    <div class="foot">Local University AI Assistant • MiniLM Semantic RAG + FAISS + Ollama • No cloud LLM required</div>
+  </div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s), root = document.documentElement;
+let mode = 'general', history = [], busy = false, customName = 'Uploaded University', customStats = null;
+const SUGG = {
+  general: ['What is artificial intelligence?', 'Explain machine learning simply', 'Give me some study tips'],
+  harvard: ['What are the admission requirements?', 'How does financial aid work?', 'What are the academic policies?'],
+  custom: ['Summarize this handbook', 'What are the fee details?', 'What are the attendance rules?']
+};
+
+/* ---------- theme ---------- */
+let dotRGB = '255,255,255', needs = true;
+function setTheme(t) {
+  root.dataset.theme = t;
+  try { localStorage.setItem('theme', t); } catch (e) {}
+  dotRGB = getComputedStyle(root).getPropertyValue('--dot').trim() || dotRGB; needs = true;
+}
+let saved = null; try { saved = localStorage.getItem('theme'); } catch (e) {}
+setTheme(saved || 'dark');
+$('#theme').onclick = () => setTheme(root.dataset.theme === 'dark' ? 'light' : 'dark');
+
+/* ---------- cursor: ring, dot, glow, click ping, magnetic buttons, card tilt ---------- */
+const ring = $('#ring'), dot = $('#dot'), spot = $('#spot'), RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const NEON = ['#00f0ff', '#ff2bd6', '#b6ff00', '#8a5cff'];
+let mx = innerWidth / 2, my = innerHeight / 2, rx = mx, ry = my, magEl = null, tiltEl = null;
+addEventListener('pointermove', e => {
+  mx = e.clientX; my = e.clientY; ring.style.opacity = dot.style.opacity = 1;
+  ring.classList.toggle('hover', !!e.target.closest('button,summary,label,select,input,.metric'));
+  const b = e.target.closest('button');
+  if (magEl && magEl !== b) { magEl.style.transform = ''; magEl = null; }
+  if (b && !b.disabled) { const r = b.getBoundingClientRect(); b.style.transform = `translate(${(e.clientX - r.left - r.width / 2) * .12}px,${(e.clientY - r.top - r.height / 2) * .2}px)`; magEl = b; }
+  const m = e.target.closest('.metric');
+  if (tiltEl && tiltEl !== m) { tiltEl.style.transform = ''; tiltEl = null; }
+  if (m) { const r = m.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    m.style.transform = `perspective(600px) rotateY(${(px - .5) * 14}deg) rotateX(${(.5 - py) * 14}deg) translateY(-3px)`;
+    m.style.setProperty('--gx', px * 100 + '%'); m.style.setProperty('--gy', py * 100 + '%'); tiltEl = m; }
+});
+document.addEventListener('pointerleave', () => { ring.style.opacity = dot.style.opacity = 0; });
+addEventListener('pointerdown', e => {
+  const p = document.createElement('div'); p.className = 'ping'; p.style.transform = `translate(${e.clientX}px,${e.clientY}px)`;
+  const c = NEON[Math.random() * NEON.length | 0];
+  const inner = document.createElement('div'); inner.style.cssText = `width:100%;height:100%;border-radius:50%;border:2px solid ${c};box-shadow:0 0 12px ${c},inset 0 0 8px ${c};animation:ping .6s ease-out forwards`;
+  p.style.border = '0'; p.style.animation = 'none'; p.appendChild(inner); document.body.appendChild(p); setTimeout(() => p.remove(), 650);
+});
+
+/* ---------- reactive dot grid ---------- */
+const cv = $('#bg'), ctx = cv.getContext('2d'); let dpr = 1;
+function resize() { dpr = devicePixelRatio || 1; cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; needs = true; }
+addEventListener('resize', resize); resize();
+function drawDots() {
+  const gap = 34 * dpr, reach = 190 * dpr, X = rx * dpr, Y = ry * dpr;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  for (let x = gap / 2; x < cv.width; x += gap) for (let y = gap / 2; y < cv.height; y += gap) {
+    const dx = x - X, dy = y - Y, d = Math.hypot(dx, dy), k = RM ? 0 : Math.max(0, 1 - d / reach), push = k * k * 14 * dpr;
+    const ox = d ? dx / d * push : 0, oy = d ? dy / d * push : 0;
+    if (k > .03) {
+      const hue = (Math.atan2(dy, dx) * 57.3 + performance.now() / 20) % 360, light = dotRGB === '0,0,0' ? 45 : 60;
+      ctx.fillStyle = `hsla(${hue},100%,${light}%,${Math.min(1, .25 + k * .9)})`;
+    } else ctx.fillStyle = `rgba(${dotRGB},.14)`;
+    ctx.beginPath(); ctx.arc(x + ox, y + oy, (1 + k * 2.4) * dpr, 0, 6.283); ctx.fill();
+  }
+}
+function loop() {
+  const moving = Math.abs(mx - rx) + Math.abs(my - ry) > .3;
+  rx += (mx - rx) * .16; ry += (my - ry) * .16;
+  ring.style.transform = `translate(${rx}px,${ry}px)`; dot.style.transform = `translate(${mx}px,${my}px)`;
+  if (moving || needs) { spot.style.setProperty('--mx', rx + 'px'); spot.style.setProperty('--my', ry + 'px'); drawDots(); needs = false; }
+  requestAnimationFrame(loop);
+}
+loop();
+
+/* ---------- toasts and confirm popup ---------- */
+function toast(text, kind) {
+  const t = document.createElement('div'); t.className = 'toast' + (kind ? ' ' + kind : ''); t.textContent = text; $('#toasts').appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, 2800);
+}
+function confirmBox(title, text) {
+  return new Promise(res => {
+    $('#mTitle').textContent = title; $('#mText').textContent = text;
+    const m = $('#modal'); m.classList.add('open');
+    const done = v => { m.classList.remove('open'); $('#mYes').onclick = $('#mNo').onclick = m.onclick = null; res(v); };
+    $('#mYes').onclick = () => done(true); $('#mNo').onclick = () => done(false);
+    m.onclick = e => { if (e.target === m) done(false); };
+  });
+}
+addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modal').classList.contains('open')) $('#mNo').click(); });
+
+/* ---------- UI helpers ---------- */
+function notice(text, cls) { $('#kbNotice').innerHTML = text ? `<div class="notice ${cls}"></div>` : ''; if (text) $('#kbNotice div').textContent = text; }
+function countTo(el, val) {
+  if (val == null) { el.textContent = '–'; return; }
+  const t0 = performance.now();
+  (function f(t) { const p = Math.min(1, (t - t0) / 700); el.textContent = Math.round(val * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(f); })(t0);
+}
+function setStats(s) { countTo($('#mChunks'), s && s.chunks); countTo($('#mDocs'), s && s.documents); countTo($('#mPages'), s && s.pages); }
+function scrollDown() { const el = $('#scroll'); el.scrollTop = el.scrollHeight; }
+
+function renderEmpty() {
+  const chat = $('#chat'); chat.innerHTML = '';
+  const e = document.createElement('div'); e.id = 'empty';
+  e.innerHTML = '<div class="orb"></div><h2>How can I help?</h2><div class="chips"></div>';
+  SUGG[mode].forEach((t, i) => {
+    const c = document.createElement('button'); c.className = 'chip'; c.textContent = t; c.style.animationDelay = (.15 + i * .1) + 's';
+    c.onclick = () => { $('#q').value = t; send(); };
+    e.querySelector('.chips').appendChild(c);
+  });
+  chat.appendChild(e);
+}
+
+function addMsg(role, text, typing) {
+  const em = $('#empty'); if (em) em.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + role;
+  wrap.innerHTML = '<div class="avatar">' + (role === 'user' ? 'You' : 'AI') + '</div><div class="body"></div>';
+  const body = wrap.querySelector('.body');
+  if (typing) body.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; else body.textContent = text;
+  $('#chat').appendChild(wrap);
+  scrollDown();
+  return body;
+}
+
+function addSources(body, sources) {
+  const d = document.createElement('details');
+  d.innerHTML = '<summary>Sources used</summary>';
+  sources.forEach(s => {
+    const box = document.createElement('div');
+    box.className = 'source-box';
+    const b = document.createElement('b'); b.textContent = s.source;
+    const meta = document.createElement('div'); meta.textContent = 'Page: ' + s.page + '   Semantic relevance: ' + s.score.toFixed(3);
+    const snip = document.createElement('span'); snip.className = 'snip'; snip.textContent = s.text + '...';
+    box.append(b, meta, snip);
+    d.appendChild(box);
+  });
+  body.appendChild(d);
+}
+
+/* ---------- server calls ---------- */
+async function refreshStatus() {
+  const st = $('#ollamaStatus');
+  try {
+    const s = await (await fetch('/status')).json();
+    st.className = 'notice ' + (s.ollama ? 'ok' : 'err');
+    st.textContent = s.ollama ? 'Ollama is running' : 'Ollama is not running. Start Ollama before asking questions.';
+    if (s.models.length) {
+      const sel = $('#model'), keep = sel.value;
+      sel.innerHTML = '';
+      s.models.forEach(m => sel.add(new Option(m, m)));
+      sel.value = s.models.includes(keep) ? keep : (s.models.includes(s.default_model) ? s.default_model : s.models[0]);
+    }
+    customStats = s.custom; customName = s.custom_name;
+    return s;
+  } catch (e) { st.className = 'notice err'; st.textContent = 'Cannot reach the Flask server.'; }
+}
+
+async function prepareHarvard(force) {
+  setStats(null);
+  notice('Preparing Harvard semantic knowledge base… the first run can take a minute.', 'info load');
+  $('#reloadBtn').disabled = true;
+  try {
+    const r = await (await fetch('/prepare', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({force})})).json();
+    if (r.ok) { setStats(r.stats); notice('', ''); toast('Harvard knowledge base ready','ok'); } else { notice(r.message, 'err'); }
+  } catch (e) { notice('Could not prepare the Harvard documents.', 'err'); }
+  $('#reloadBtn').disabled = false;
+}
+
+function setMode(m) {
+  mode = m; history = [];
+  $('#harvardBox').hidden = m !== 'harvard';
+  $('#customBox').hidden = m !== 'custom';
+  $('.metrics').style.display = m === 'general' ? 'none' : '';
+  renderEmpty(); notice('', '');
+  const h = $('#heading'); h.classList.remove('swap'); void h.offsetWidth; h.classList.add('swap');
+  if (m === 'general') { h.textContent = 'General Chatbot'; }
+  else if (m === 'harvard') { h.textContent = 'Harvard University Assistant'; prepareHarvard(false); }
+  else {
+    h.textContent = customName + ' Assistant';
+    setStats(customStats);
+    notice(customStats ? '' : 'Upload a university PDF from the sidebar and click Process University Documents.', 'info');
+  }
+}
+
+document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', () => setMode(r.value)));
+$('#reloadBtn').onclick = () => { renderEmpty(); prepareHarvard(true); };
+$('#clearBtn').onclick = async () => {
+  if (!$('#chat .msg')) { toast('The chat is already empty'); return; }
+  if (await confirmBox('Clear this chat?', 'All messages on screen will be removed.')) { history = []; renderEmpty(); toast('Chat cleared','ok'); }
+};
+
+$('#processBtn').onclick = async () => {
+  const files = $('#files').files;
+  if (!files.length) { notice('Choose at least one PDF first.', 'err'); return; }
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  fd.append('name', $('#uname').value);
+  $('#processBtn').disabled = true;
+  notice('Creating semantic knowledge base…', 'info load');
+  try {
+    const r = await (await fetch('/upload', {method:'POST', body: fd})).json();
+    if (r.ok) {
+      customStats = r.stats; customName = r.name;
+      $('#heading').textContent = customName + ' Assistant';
+      setStats(r.stats); renderEmpty();
+      notice('Created ' + r.stats.chunks + ' semantic knowledge chunks.', 'ok'); toast('Documents processed','ok');
+    } else { notice(r.message, 'err'); }
+  } catch (e) { notice('Upload failed. Check the Flask terminal for details.', 'err'); }
+  $('#processBtn').disabled = false;
+};
+
+async function send() {
+  const question = $('#q').value.trim();
+  if (!question || busy) return;
+  busy = true; $('#send').disabled = true; $('#q').value = '';
+  addMsg('user', question);
+  const body = addMsg('assistant', '', true);
+  let text = '', started = false;
+  try {
+    const res = await fetch('/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({question, mode, history, model: $('#model').value})});
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream: true});
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const raw = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!raw) continue;
+        const ev = JSON.parse(raw);
+        if (ev.type === 'sources') { body.dataset.sources = JSON.stringify(ev.sources); }
+        else if (ev.type === 'token') { text += ev.text; started = true; body.textContent = text; body.classList.add('streaming'); scrollDown(); }
+      }
+    }
+    body.classList.remove('streaming');
+    if (!started) body.textContent = 'I could not generate an answer.';
+    else history.push({role: 'user', content: question}, {role: 'assistant', content: text});
+    if (body.dataset.sources && !text.includes('could not find this information')) addSources(body, JSON.parse(body.dataset.sources));
+  } catch (e) {
+    body.classList.remove('streaming');
+    body.textContent = 'Error: Failed to generate response. Check the Flask terminal for details.';
+  }
+  busy = false; $('#send').disabled = false; $('#q').focus(); scrollDown();
+}
+
+$('#send').onclick = send;
+$('#q').addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+
+refreshStatus().then(() => setMode('general'));
+</script>
+</body>
+</html>
