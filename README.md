@@ -11,7 +11,7 @@
 
 ## 🔗 Live Interactive Demo
 
-* **Shared Application Preview URL:** [https://ais-pre-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app](https://ais-pre-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app)
+* **Shared Application Preview URL:** [https://ais-pre-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app](https://ais-dev-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app/)
 * **Development Preview URL:** [https://ais-dev-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app](https://ais-dev-h5sru4mtkvoqqk74e63lmd-641540487682.asia-southeast1.run.app)
 
 ---
